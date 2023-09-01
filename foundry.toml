@@ -1,6 +1,28 @@
 [profile.default]
-src = "src"
+src = "contracts"
 out = "out"
 libs = ["lib"]
+remappings = [
+    '@openzeppelin/contracts=lib/openzeppelin-contracts/contracts',
+    '@maverick=lib/maverick-protocol/contracts',
+    '@layerzerolabs/=lib/',
+    '@solmate=lib/solmate/src',
+]
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+eth_rpc_url = "http://127.0.0.1:8545"
+optimizer = true
+optimizer_runs = 1_000_000
+fuzz_runs = 32768
+solc_version = "0.8.21"
+# via_ir = true # TODO use for production
+evm_version = 'paris'
+
+# [rpc_endpoints]
+# goerli = "${GOERLI_RPC_URL}"
+# bsctestnet = "${BSC_TESTNET_RPC_URL}"
+
+# [etherscan]
+# goerli = { key = "${ETHERSCAN_API_KEY}" }
+# bsctesnet = { key = "${BSCSCAN_API_KEY}" }
+
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config
