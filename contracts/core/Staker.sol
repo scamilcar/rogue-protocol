@@ -81,8 +81,8 @@ contract Staker is ERC4626, Rewarder, Votes {
 
     /// @notice ERC20 override, update rewards, stakes, nd voting units
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        updateAllRewards(from);
-        updateAllRewards(to);
+        if (from != address(0)) updateAllRewards(from);
+        if (to != address(0)) updateAllRewards(to);
         _updateStakes(from, to, amount);
         _transferVotingUnits(from, to, amount);
     }

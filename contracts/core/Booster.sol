@@ -121,8 +121,8 @@ contract Booster is ERC4626, Rewarder {
     /// @param to address to transfer to
     /// @param amount amount to transfer
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        updateAllRewards(from);
-        updateAllRewards(to);
+        if (from != address(0)) updateAllRewards(from);
+        if (to != address(0)) updateAllRewards(to);
         _updateStakes(from, to, amount);
     }
 }
