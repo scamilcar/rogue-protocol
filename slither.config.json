@@ -1,0 +1,8 @@
+{
+    "solc_remaps": [
+        "@openzeppelin/contracts=lib/openzeppelin-contracts/contracts",
+        "@maverick=lib/maverick/contracts",
+        "@layerzerolabs/=lib/",
+        "@solmate=lib/solmate/src"
+    ]
+}
