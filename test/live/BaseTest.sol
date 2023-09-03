@@ -103,9 +103,6 @@ contract BaseTest is Test {
         );
         board.initialize(address(broker), address(hub));
 
-        // create a booster
-        booster = Booster(manager.create(address(poolPosition)));
-
         // get LP tokens
         _getLpTokens(alice);
 

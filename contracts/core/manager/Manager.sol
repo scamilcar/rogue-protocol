@@ -49,7 +49,7 @@ contract Manager is Ownable {
     uint256 public baseMinRewardAmount;
 
     /// @notice reward duration of liquity mining
-    uint256 public basePeriodDuration;
+    uint256 public baseRewardDuration;
 
     /// @notice list of boosters
     EnumerableSet.AddressSet private _boosters;
@@ -126,8 +126,8 @@ contract Manager is Ownable {
         boosterInfo[booster] = Info({compounder: owner(),compounding: false});
         _boosters.add(booster);
         IBroker _broker = IBroker(broker);
-        IBooster(booster).addNewRewardToken(_broker.mav(), baseMinRewardAmount, basePeriodDuration);
-        IBooster(booster).addNewRewardToken(_broker.claimToken(), baseMinRewardAmount, basePeriodDuration);
+        IBooster(booster).addNewRewardToken(_broker.mav(), baseMinRewardAmount, baseRewardDuration);
+        IBooster(booster).addNewRewardToken(_broker.claimToken(), baseMinRewardAmount, baseRewardDuration);
 
         emit BoosterCreated(_poolPosition, booster);
     }
@@ -188,9 +188,9 @@ contract Manager is Ownable {
 
     /// @notice updates the base reward params used when creating boosters
     /// @param _baseMinRewardAmount the new base min reward amount
-    /// @param _basePeriodDuration the new base period duration
-    function updateBaseRewardParams(uint256 _baseMinRewardAmount, uint256 _basePeriodDuration) external onlyOwner {
+    /// @param _baseRewardDuration the new base period duration
+    function updateBaseRewardParams(uint256 _baseMinRewardAmount, uint256 _baseRewardDuration) external onlyOwner {
         baseMinRewardAmount = _baseMinRewardAmount;
-        basePeriodDuration = _basePeriodDuration;
+        baseRewardDuration = _baseRewardDuration;
     }
 }

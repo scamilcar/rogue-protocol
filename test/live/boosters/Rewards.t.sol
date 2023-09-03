@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
+import "test/live/BaseTest.sol";
 import {IRewarder} from "contracts/core/interfaces/IRewarder.sol";
-
-import {BaseTest} from "test/live/BaseTest.sol";
-
-import "forge-std/console2.sol";
 
 contract BoosterRewardsTest is BaseTest {
 
@@ -15,6 +10,9 @@ contract BoosterRewardsTest is BaseTest {
     
     function setUp() public {
         deploy();
+
+        // create a booster
+        booster = Booster(manager.create(address(poolPosition)));
 
         // add dai as reward on booster
         vm.startPrank(address(manager));
