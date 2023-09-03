@@ -130,33 +130,4 @@ contract BaseTest is Test {
         dai.transfer(account, balance);
         vm.stopPrank();
     }
-
-//     function _getTokens() internal returns (uint, uint) {
-
-//         uint tokenAAmount = IERC20(tokenA).balanceOf(tokenAWhale);
-//         vm.startPrank(tokenAWhale);
-//         emit log_named_uint("tokenA amount", tokenAAmount);
-//         IERC20(tokenA).transfer(address(this), tokenAAmount);
-//         vm.stopPrank();
-
-//         vm.startPrank(tokenBWhale);
-//         uint tokenBAmount = IERC20(tokenB).balanceOf(tokenBWhale);
-//         emit log_named_uint("tokenB amount", tokenBAmount);
-//         IERC20(tokenB).transfer(address(this), tokenBAmount);
-//         vm.stopPrank();
-
-//         uint balanceA = IERC20(tokenA).balanceOf(address(this));
-//         uint balanceB = IERC20(tokenB).balanceOf(address(this));
-
-//         return (balanceA, balanceB);
-//     }
-
-//     function _getMAV() internal returns (uint256) {
-//         address mavWhale = 0x4eBC6D29CE557347858176177d3B5DaD8964cE71;
-//         vm.startPrank(mavWhale);
-//         uint balance = IERC20(mav).balanceOf(mavWhale);
-//         IERC20(mav).transfer(address(this), balance);
-//         vm.stopPrank();
-//         return balance;
-//     }
 }
