@@ -4,7 +4,8 @@ pragma solidity ^0.8.0;
 import "test/live/BaseTest.sol";
 import {IRewarder} from "contracts/core/interfaces/IRewarder.sol";
 
-contract ManagerTest is BaseTest {
+contract ManagerCreateTest is BaseTest {
+    
     function setUp() public {
         deploy();
     }
@@ -40,19 +41,34 @@ contract ManagerTest is BaseTest {
         assertEq(claimDuration, manager.baseRewardDuration(), "claim duration");
     }
 
+    /// @notice try to create booster and fail as caller isn't owner
+    function test_create_onlyOwner() public {
+        address invalidOwner = address(17878);
+        vm.startPrank(invalidOwner);
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        manager.create(address(poolPosition));
+        vm.stopPrank();
+    }
+
+    /// @notice try to create booster and fail as poolPosition is invalid
     function test_create_InvalidPoolPosition() public {
-        vm.expectRevert(bytes4(Manager.InvalidPoolPosition.selector)); // CONTINUE HERE
         address invalidPoolPosition = address(17878);
+        bytes memory revertData = abi.encodeWithSelector(
+            Manager.InvalidPoolPosition.selector,
+            invalidPoolPosition
+        );
+        vm.expectRevert(revertData);
         manager.create(invalidPoolPosition);
     }
 
-
-
-    ////////////////////////////////////////////////////////////////
-    /////////////////////////// Internal ///////////////////////////
-    ////////////////////////////////////////////////////////////////
-
-    function _create() internal {
-        booster = Booster(manager.create(address(poolPosition)));
+    /// @notice try to create booster and fail as booster already exists
+    function test_create_BoosterExists() public {
+        manager.create(address(poolPosition));
+        bytes memory revertData = abi.encodeWithSelector(
+            Manager.BoosterExists.selector,
+            address(lpReward)
+        );
+        vm.expectRevert(revertData);
+        manager.create(address(poolPosition));
     }
 }
