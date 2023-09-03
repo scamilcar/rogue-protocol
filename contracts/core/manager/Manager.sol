@@ -73,6 +73,9 @@ contract Manager is Ownable {
         poolPositionFactory = IPoolPositionAndRewardFactorySlim(_poolPositionFactory);
         broker = _broker;
         board = _board;
+
+        baseMinRewardAmount = 1e18;
+        baseRewardDuration = 7 days;
     }
 
     ////////////////////////////////////////////////////////////////
@@ -180,7 +183,7 @@ contract Manager is Ownable {
     /// @notice switch the mode of a booster, true = compounding, false = claiming
     /// @param _booster address of the booster
     /// @param _mode true = compounding, false = claiming
-    function swithBoosterMode(address _booster, bool _mode) external {
+    function switchBoosterMode(address _booster, bool _mode) external {
         Info memory info = boosterInfo[_booster];
         if (msg.sender != info.compounder) revert InvalidCompounder();
         boosterInfo[_booster].compounding = _mode;
