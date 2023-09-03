@@ -79,12 +79,22 @@ contract Staker is ERC4626, Rewarder, Votes {
         emit Withdraw(caller, receiver, owner, assets, shares);
     }
 
-    /// @notice ERC20 override, update rewards, stakes, nd voting units
+    /// @notice update rewards before transfer
+    /// @param from address to transfer from
+    /// @param to address to transfer to
+    /// @param amount amount to transfer
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        if (from != address(0)) updateAllRewards(from);
-        if (to != address(0)) updateAllRewards(to);
-        _updateStakes(from, to, amount);
-        _transferVotingUnits(from, to, amount);
+        if (from != address(0) && to != address(0)) {
+            updateAllRewards(from);
+            updateAllRewards(to);
+            _updateStakes(from, to, amount);
+        }
+    }
+
+    /// @notice updates stakes
+    function _updateStakes(address from, address to, uint256 amount) internal {
+        stakeOf[from] -= amount;
+        stakeOf[to] += amount;
     }
 
     /// @notice Vote override, return the amount of voting units for `account`

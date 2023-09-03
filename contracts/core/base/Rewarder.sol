@@ -141,11 +141,6 @@ abstract contract Rewarder is IRewarder, ReentrancyGuard, Owned, Multicall {
         }
     }
 
-    function _updateStakes(address from, address to, uint256 amount) internal {
-        if (from != address(0)) stakeOf[from] -= amount;
-        if (to != address(0)) stakeOf[to] += amount;
-    }
-
     /////////////////////////////////////
     /// Internal User Functions
     /////////////////////////////////////

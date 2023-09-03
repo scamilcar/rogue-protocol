@@ -87,7 +87,7 @@ contract Booster is ERC4626, Rewarder {
     /////////////////////////// Override ///////////////////////////
     ////////////////////////////////////////////////////////////////
 
-    /// @notice ERC4626 modified internal function. It transfers assets to the Board instead of this contract
+    /// @notice ERC4626 modified internal function. It stakes the asset in lpReward with board as recipient
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
         // slither-disable-next-line reentrancy-no-eth
         IERC20(asset()).safeTransferFrom(caller, address(this), assets);
@@ -121,8 +121,16 @@ contract Booster is ERC4626, Rewarder {
     /// @param to address to transfer to
     /// @param amount amount to transfer
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        if (from != address(0)) updateAllRewards(from);
-        if (to != address(0)) updateAllRewards(to);
-        _updateStakes(from, to, amount);
+        if (from != address(0) && to != address(0)) {
+            updateAllRewards(from);
+            updateAllRewards(to);
+            _updateStakes(from, to, amount);
+        }
+    }
+
+    /// @notice updates stakes
+    function _updateStakes(address from, address to, uint256 amount) internal {
+        stakeOf[from] -= amount;
+        stakeOf[to] += amount;
     }
 }
