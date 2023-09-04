@@ -14,7 +14,7 @@ contract BoosterWithdrawTest is BaseTest {
     /// @notice test deposit
     function test_withdraw(uint256 assets) public {
 
-        // prepare
+        // bound values
         assets = bound(assets, 1, poolPosition.balanceOf(alice));
         address recipient = alice;
 

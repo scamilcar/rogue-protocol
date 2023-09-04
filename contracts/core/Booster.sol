@@ -22,6 +22,8 @@ TODO: events
 contract Booster is ERC4626, Rewarder {
     using SafeERC20 for IERC20;
 
+    error EOA();
+
     /// @notice the address of the broker
     address public immutable broker;
 
@@ -30,6 +32,9 @@ contract Booster is ERC4626, Rewarder {
 
     /// @notice the address of the board
     address public immutable board;
+
+    /// @notice return true if `account` is granted
+    mapping(address account => bool granted) public isProtocol;
 
     /// @param _poolPosition the associated pool position contract
     /// @param _lpReward the associated lp contract
@@ -45,8 +50,11 @@ contract Booster is ERC4626, Rewarder {
         address _board,
         address _manager,
         string memory name_,
-        string memory symbol_
-    ) ERC4626(IERC20(_poolPosition)) ERC20(name_, symbol_) Rewarder(_manager) {
+        string memory symbol_)
+
+        ERC4626(IERC20(_poolPosition))
+        Rewarder(_manager)
+        ERC20(name_, symbol_) { 
 
         lpReward = _lpReward;
         broker = _broker;
@@ -120,17 +128,32 @@ contract Booster is ERC4626, Rewarder {
     /// @param from address to transfer from
     /// @param to address to transfer to
     /// @param amount amount to transfer
+    /// @dev would not update rewards, stakes and  if `to` is whitelisted
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        if (from != address(0) && to != address(0)) {
-            updateAllRewards(from);
-            updateAllRewards(to);
-            _updateStakes(from, to, amount);
-        }
+        if (!isProtocol[to]) {
+            if (from != address(0) && to != address(0)) {
+                updateAllRewards(from);
+                updateAllRewards(to);
+                _updateStakes(from, to, amount);
+            }
+        }  
     }
 
     /// @notice updates stakes
     function _updateStakes(address from, address to, uint256 amount) internal {
         stakeOf[from] -= amount;
         stakeOf[to] += amount;
+    }
+
+    ////////////////////////////////////////////////////////////////
+    ////////////////////////// Restricted //////////////////////////
+    ////////////////////////////////////////////////////////////////
+
+    /// @notice allow owner to grant protocol status to `_protocol`
+    function updateProtocolStatus(address _protocol, bool _status) external onlyOwner {
+        if (_status) {
+            if (_protocol.code.length == 0) revert EOA();
+        }
+        isProtocol[_protocol] = _status;
     }
 }

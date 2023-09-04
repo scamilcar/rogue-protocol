@@ -14,8 +14,13 @@ import {Rewarder} from "contracts/core/base/Rewarder.sol";
 contract Staker is ERC4626, Rewarder, Votes {
     using SafeERC20 for IERC20;
 
+    error EOA();
+
     /// @notice address of the Broker
     address public immutable broker;
+
+    /// @notice return true if `account` is granted
+    mapping(address account => bool granted) public isProtocol;
 
     /// @param _stakingToken address of staking token
     /// @param _owner address of owner
@@ -52,10 +57,10 @@ contract Staker is ERC4626, Rewarder, Votes {
 
     /// @notice ERC4626 override, additional `_stake` action
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
+        // slither-disable-next-line reentrancy-no-eth
         IERC20(asset()).safeTransferFrom(caller, address(this), assets);
         _stake(shares, receiver);
         _mint(receiver, shares);
-        _transferVotingUnits(address(0), receiver, shares);
 
         emit Deposit(caller, receiver, assets, shares);
     }
@@ -73,7 +78,6 @@ contract Staker is ERC4626, Rewarder, Votes {
         }
         _burn(owner, shares);
         _unstake(shares, owner);
-        _transferVotingUnits(owner, address(0), shares);
         IERC20(asset()).safeTransfer(receiver, assets);
 
         emit Withdraw(caller, receiver, owner, assets, shares);
@@ -83,11 +87,16 @@ contract Staker is ERC4626, Rewarder, Votes {
     /// @param from address to transfer from
     /// @param to address to transfer to
     /// @param amount amount to transfer
+    /// @dev would not update rewards, stakes and  if `to` is whitelisted
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        if (from != address(0) && to != address(0)) {
-            updateAllRewards(from);
-            updateAllRewards(to);
-            _updateStakes(from, to, amount);
+        if (!isProtocol[to]) {
+            if (from != address(0) && to != address(0)) {
+                updateAllRewards(from);
+                updateAllRewards(to);
+                _updateStakes(from, to, amount);
+            }
+            _transferVotingUnits(from, to, amount);
+            _delegate(to, to);
         }
     }
 
@@ -100,5 +109,17 @@ contract Staker is ERC4626, Rewarder, Votes {
     /// @notice Vote override, return the amount of voting units for `account`
     function _getVotingUnits(address account) internal view override returns (uint256) {
         return stakeOf[account];
+    }
+
+    ////////////////////////////////////////////////////////////////
+    ////////////////////////// Restricted //////////////////////////
+    ////////////////////////////////////////////////////////////////
+
+    /// @notice allow owner to grant protocol status to `_protocol`
+    function updateProtocolStatus(address _protocol, bool _status) external onlyOwner {
+        if (_status) {
+            if (_protocol.code.length == 0) revert EOA();
+        }
+        isProtocol[_protocol] = _status;
     }
 }

@@ -14,7 +14,7 @@ contract BoosterDepositTest is BaseTest {
     /// @notice test deposit
     function test_deposit(uint256 assets) public {
 
-        // prepare
+        // bound input
         assets = bound(assets, 1, poolPosition.balanceOf(alice));
         address recipient = alice;
 
@@ -44,7 +44,7 @@ contract BoosterDepositTest is BaseTest {
     /// @notice test mint
     function test_mint(uint256 shares) public {
 
-        // prepare
+        // bound input
         shares = bound(shares, 1, booster.previewDeposit(poolPosition.balanceOf(alice)));
         address recipient = alice;
 

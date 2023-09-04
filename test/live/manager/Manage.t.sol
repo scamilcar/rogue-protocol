@@ -197,5 +197,4 @@ contract ManagerManageTest is BaseTest {
         manager.updateBaseRewardParams(1e18, 7 days);
         vm.stopPrank();
     }
-
 }

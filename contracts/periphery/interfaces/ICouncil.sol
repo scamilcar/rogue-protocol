@@ -21,16 +21,11 @@ interface ICouncil {
         uint256 compensationRatio
     );
 
-    struct UserInfo {
-        uint256 allocated;
-        uint256 exiting; 
-    }
-
     struct ExitInfo {
         uint256 shares;
         uint256 exitShares;
         uint256 compensation;
-        uint256 time;
+        uint256 release;
     }
 
     struct Params {

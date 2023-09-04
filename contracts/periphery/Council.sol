@@ -23,7 +23,8 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
 
     address public immutable broker;
     Params public params;
-    uint256 public MAX_EXIT_DURATION = 365 days;
+    uint256 public constant MAX_EXIT_DURATION = 365 days;
+    uint256 public constant MIN_EXIT_RATIO = 0.4e18;
 
     mapping(address user => ExitInfo[] exits) public userExits;
     mapping(address user => uint256 shares) public exiting;
@@ -128,7 +129,7 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
     function leave(address receiver, uint256 index) external checkExit(msg.sender, index) {
         
         ExitInfo memory exit = userExits[msg.sender][index];
-        if (block.timestamp <= exit.time) revert TooEarly(block.timestamp, exit.time);
+        if (block.timestamp <= exit.release) revert TooEarly(block.timestamp, exit.release);
 
         exiting[msg.sender] -= exit.shares;
 
@@ -137,7 +138,7 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
         _unstake(exit.compensation, msg.sender);
 
         // send receiver assets and burn excess assets
-        _leave(convertToAssets(exit.shares), convertToAssets(exit.exitShares), receiver);
+        _leave(exit.shares, exit.exitShares, receiver);
 
         // remove exit from array
         _deleteExit(msg.sender, index); 
@@ -181,6 +182,12 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
         emit Deposit(caller, receiver, assets, shares);
     }
 
+    /// @notice ERC20 override
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
+        _transferVotingUnits(from, to, amount);
+        _delegate(to,to);
+    }
+
     ////////////////////////////////////////////////////////////////
     /////////////////////////// Internal ///////////////////////////
     ////////////////////////////////////////////////////////////////
@@ -219,19 +226,30 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
             }
             userExits[owner].push(ExitInfo(shares, exitShares, compensation, block.timestamp + duration));
         } else {
-            _leave(convertToAssets(shares), convertToAssets(exitShares), receiver);
+            emit ERROR(0);
+            _leave(shares, exitShares, receiver);
+            emit ERROR(1);
             emit Left(owner, exitShares, shares);
         }
     }
-
+    event ERROR(uint256 i);
     /// @notice withdraw assets once an exit is over and burn excess shares
-    /// @param assets amount of shares to exit
-    /// @param exitAssets amount of shares received for 
+    /// @param shares amount of shares to exit
+    /// @param exitShares amount of shares received for 
     /// @param recipient address to receive assets
-    function _leave(uint256 assets, uint256 exitAssets, address recipient) internal {
-        uint256 excess = assets - exitAssets;
+    function _leave(uint256 shares, uint256 exitShares, address recipient) internal {
+        emit ERROR(2);
+        uint256 excessShares = shares - exitShares;
+        emit ERROR(3);
+        uint256 assets = convertToAssets(shares);
+        uint256 exitAssets = convertToAssets(exitShares);
+        uint256 excessAssets = assets - exitAssets;
+
+
         IERC20(asset()).safeTransfer(recipient, exitAssets);
-        IBase(address(asset())).burn(excess);
+        emit ERROR(4);
+        IBase(address(asset())).burn(convertToAssets(excessAssets));
+        emit ERROR(5);
     }
 
     /// @notice delete an exit entry from `owner`
@@ -258,7 +276,12 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
         if (_newParams.minExitRatio >= _newParams.maxExitRatio) revert WrongRatio(_newParams.minExitRatio, _newParams.maxExitRatio); 
         if (_newParams.minExitDuration >= _newParams.maxExitDuration) revert WrongDuration(_newParams.minExitDuration, _newParams.maxExitDuration);
 
-        if(_newParams.maxExitRatio != ONE || _newParams.maxExitDuration > MAX_EXIT_DURATION || _newParams.compensationRatio > ONE) revert InvalidParams();
+        if(
+            _newParams.minExitRatio < MIN_EXIT_RATIO ||
+            _newParams.maxExitRatio != ONE ||
+            _newParams.maxExitDuration > MAX_EXIT_DURATION ||
+            _newParams.compensationRatio > ONE
+        ) revert InvalidParams();
 
         params = _newParams;
 

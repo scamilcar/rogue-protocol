@@ -112,12 +112,13 @@ abstract contract BaseTest is Test {
 
         // mocks
         dai = new MockERC20("DAI", "DAI", 18);
-        mintMocks(address(this), 1e20 * 1e18);
-        mintMocks(alice, 1e20 * 1e18);
-        mintMocks(bob, 1e20 * 1e18);
+        _mintMocks(address(this), 1e20 * 1e18);
+        _mintMocks(alice, 1e20 * 1e18);
+        _mintMocks(bob, 1e20 * 1e18);
     }
 
-    function mintMocks(address to, uint256 amount) public {
+    /// @notice mint mocks
+    function _mintMocks(address to, uint256 amount) internal {
         mav.mint(to, amount);
         dai.mint(to, amount);
     }
