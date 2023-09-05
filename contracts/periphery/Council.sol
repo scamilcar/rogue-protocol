@@ -123,6 +123,8 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
         _deleteExit(msg.sender, index);
     }
 
+    event LOG(string,uint256);
+    event OK(uint);
     /// @notice withdraw assets once an exit is over
     /// @param receiver address to receive assets
     /// @param index index of exit
@@ -132,14 +134,18 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
         if (block.timestamp <= exit.release) revert TooEarly(block.timestamp, exit.release);
 
         exiting[msg.sender] -= exit.shares;
-
-        // burn msg.sender compensation
-        _burn(msg.sender, exit.compensation);
-        _unstake(exit.compensation, msg.sender);
-
+        emit OK(1);
         // send receiver assets and burn excess assets
-        _leave(exit.shares, exit.exitShares, receiver);
-
+        _leave(exit.assets, exit.exitAssets, receiver);
+        emit OK(2);
+        // burn shares and msg.sender compensation
+        emit LOG("exitShares", exit.exitShares);
+        emit LOG("balance", balanceOf(address(this)));
+        emit LOG ("totalSupply", totalSupply());
+        _burn(address(this), exit.exitShares);
+        emit OK(3);
+        _unstake(exit.compensation, msg.sender);
+        emit OK(4);
         // remove exit from array
         _deleteExit(msg.sender, index); 
     }
@@ -163,15 +169,23 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
     ////////////////////////////////////////////////////////////////
 
     /// @notice ERC4626 override,
-    function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {}
+    function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {
+        revert Overriden();
+    }
 
-    function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256) {}
+    function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256) {
+        revert Overriden();
+    }
 
     /// @notice ERC20 override, restricted use
-    function transfer(address to, uint256 amount) public override(ERC20, IERC20) returns (bool) {}
+    function transfer(address to, uint256 amount) public override(ERC20, IERC20) returns (bool) {
+        revert TransfersDisabled();
+    }
 
     /// @notice ERC20 override, restricted use
-    function transferFrom(address from, address to, uint256 amount) public override(ERC20, IERC20) returns (bool) {}
+    function transferFrom(address from, address to, uint256 amount) public override(ERC20, IERC20) returns (bool) {
+        revert TransfersDisabled();
+    }
 
     /// @notice ERC4626 override, stakes shares into the staking contract
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
@@ -184,6 +198,11 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
 
     /// @notice ERC20 override
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
+        _transferVotes(from, to, amount);
+    }
+
+    /// @notice ERC20 override
+    function _transferVotes(address from, address to, uint256 amount) internal {
         _transferVotingUnits(from, to, amount);
         _delegate(to,to);
     }
@@ -207,13 +226,17 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
     ) internal virtual {
         if (duration < params.minExitDuration) revert DurationTooShort(params.minExitDuration, duration);
         if (duration > params.maxExitDuration) revert DurationTooLong(params.maxExitDuration, duration);
+
         if (caller != owner) {
             _spendAllowance(owner, caller, shares);
         }
-        _burn(owner, shares);
-        _unstake(shares, owner);
 
         uint256 exitShares = getExitShares(shares, duration);
+        uint256 assets = convertToAssets(shares);
+        uint256 exitAssets = convertToAssets(exitShares);
+
+        _burn(owner, shares);
+        _unstake(shares, owner);
 
         emit Exited(owner, shares, exitShares, duration);
 
@@ -221,35 +244,40 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
             exiting[owner] += shares;
             uint256 compensation = Math.mulDiv(exitShares, params.compensationRatio, ONE);
             if (compensation > 0) {
-                _mint(owner, compensation); 
-                _stake(compensation, owner);
+                _stake(compensation, owner); // stake compensation for owner
+                _transferVotes(address(0), owner, compensation); // transfer votes to owner
+                _mint(address(this), exitShares); // mint to maintain right supply
             }
-            userExits[owner].push(ExitInfo(shares, exitShares, compensation, block.timestamp + duration));
+            userExits[owner].push(
+                ExitInfo(
+                    shares,
+                    exitShares,
+                    assets,
+                    exitAssets,
+                    compensation, 
+                    block.timestamp + duration
+                )
+            );
         } else {
-            emit ERROR(0);
-            _leave(shares, exitShares, receiver);
-            emit ERROR(1);
+            _leave(assets, exitAssets, receiver);
             emit Left(owner, exitShares, shares);
         }
     }
-    event ERROR(uint256 i);
+
     /// @notice withdraw assets once an exit is over and burn excess shares
-    /// @param shares amount of shares to exit
-    /// @param exitShares amount of shares received for 
+    /// @param assets amount of shares to exit
+    /// @param exitAssets amount of shares received for 
     /// @param recipient address to receive assets
-    function _leave(uint256 shares, uint256 exitShares, address recipient) internal {
-        emit ERROR(2);
-        uint256 excessShares = shares - exitShares;
-        emit ERROR(3);
-        uint256 assets = convertToAssets(shares);
-        uint256 exitAssets = convertToAssets(exitShares);
+    function _leave(uint256 assets, uint256 exitAssets, address recipient) internal {
+        emit LOG("assets", assets);
+        emit LOG("exitAssets", exitAssets);
+        emit LOG("council balance1", IERC20(asset()).balanceOf(address(this)));
         uint256 excessAssets = assets - exitAssets;
-
-
+        emit LOG("excessAssets", excessAssets);
         IERC20(asset()).safeTransfer(recipient, exitAssets);
-        emit ERROR(4);
-        IBase(address(asset())).burn(convertToAssets(excessAssets));
-        emit ERROR(5);
+        emit LOG("council balance2", IERC20(asset()).balanceOf(address(this)));
+        IBase(address(asset())).burn((excessAssets));
+        emit LOG("council balance3", IERC20(asset()).balanceOf(address(this)));
     }
 
     /// @notice delete an exit entry from `owner`

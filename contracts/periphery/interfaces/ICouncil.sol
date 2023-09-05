@@ -10,6 +10,8 @@ interface ICouncil {
     error WrongRatio(uint256 minRatio, uint256 maxRatio);
     error WrongDuration(uint256 minDuration, uint256 maxDuration);
     error InvalidExit();
+    error Overriden();
+    error TransfersDisabled();
 
     event Exited(address indexed owner, uint256 shares, uint256 exitShares, uint256 duration);
     event Left(address indexed owner, uint256 exitShares, uint256 shares);
@@ -24,6 +26,8 @@ interface ICouncil {
     struct ExitInfo {
         uint256 shares;
         uint256 exitShares;
+        uint256 assets;
+        uint256 exitAssets;
         uint256 compensation;
         uint256 release;
     }
