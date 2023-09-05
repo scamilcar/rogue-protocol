@@ -6,7 +6,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {OFT} from "@layerzerolabs/solidity-examples/contracts/token/oft/OFT.sol";
-import {ILayerZeroEndpoint} from "@layerzerolabs/solidity-examples/contracts/interfaces/ILayerZeroEndpoint.sol";
 
 import {IBoard} from "contracts/periphery/interfaces/IBoard.sol";
 
