@@ -130,30 +130,16 @@ contract Booster is ERC4626, Rewarder {
     /// @param amount amount to transfer
     /// @dev would not update rewards, stakes and  if `to` is whitelisted
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        if (!isProtocol[to]) {
-            if (from != address(0) && to != address(0)) {
-                updateAllRewards(from);
-                updateAllRewards(to);
-                _updateStakes(from, to, amount);
-            }
-        }  
+        if (from != address(0) && to != address(0)) {
+            updateAllRewards(from);
+            updateAllRewards(to);
+            _updateStakes(from, to, amount);
+        } 
     }
 
     /// @notice updates stakes
     function _updateStakes(address from, address to, uint256 amount) internal {
         stakeOf[from] -= amount;
         stakeOf[to] += amount;
-    }
-
-    ////////////////////////////////////////////////////////////////
-    ////////////////////////// Restricted //////////////////////////
-    ////////////////////////////////////////////////////////////////
-
-    /// @notice allow owner to grant protocol status to `_protocol`
-    function updateProtocolStatus(address _protocol, bool _status) external onlyOwner {
-        if (_status) {
-            if (_protocol.code.length == 0) revert EOA();
-        }
-        isProtocol[_protocol] = _status;
     }
 }

@@ -19,9 +19,6 @@ contract Staker is ERC4626, Rewarder, Votes {
     /// @notice address of the Broker
     address public immutable broker;
 
-    /// @notice return true if `account` is granted
-    mapping(address account => bool granted) public isProtocol;
-
     /// @param _stakingToken address of staking token
     /// @param _owner address of owner
     constructor(IERC20 _stakingToken, address _broker, address _owner)
@@ -89,15 +86,13 @@ contract Staker is ERC4626, Rewarder, Votes {
     /// @param amount amount to transfer
     /// @dev would not update rewards, stakes and  if `to` is whitelisted
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        if (!isProtocol[to]) {
-            if (from != address(0) && to != address(0)) {
-                updateAllRewards(from);
-                updateAllRewards(to);
-                _updateStakes(from, to, amount);
-            }
-            _transferVotingUnits(from, to, amount);
-            _delegate(to, to);
+        if (from != address(0) && to != address(0)) {
+            updateAllRewards(from);
+            updateAllRewards(to);
+            _updateStakes(from, to, amount);
         }
+        _transferVotingUnits(from, to, amount);
+        _delegate(to, to);
     }
 
     /// @notice updates stakes
@@ -109,17 +104,5 @@ contract Staker is ERC4626, Rewarder, Votes {
     /// @notice Vote override, return the amount of voting units for `account`
     function _getVotingUnits(address account) internal view override returns (uint256) {
         return stakeOf[account];
-    }
-
-    ////////////////////////////////////////////////////////////////
-    ////////////////////////// Restricted //////////////////////////
-    ////////////////////////////////////////////////////////////////
-
-    /// @notice allow owner to grant protocol status to `_protocol`
-    function updateProtocolStatus(address _protocol, bool _status) external onlyOwner {
-        if (_status) {
-            if (_protocol.code.length == 0) revert EOA();
-        }
-        isProtocol[_protocol] = _status;
     }
 }

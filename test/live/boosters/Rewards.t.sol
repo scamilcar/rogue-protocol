@@ -71,7 +71,7 @@ contract BoosterRewardsTest is BaseTest {
         vm.stopPrank();
 
         // bound values
-        assets = bound(assets, 1, poolPosition.balanceOf(alice));
+        assets = bound(assets, 10, poolPosition.balanceOf(alice));
         notified = bound(notified, minimumRewardAmount, dai.balanceOf(address(this)));
 
         // notify rewards to booster
@@ -83,8 +83,8 @@ contract BoosterRewardsTest is BaseTest {
         address recipient2 = bob;
 
         // players deposit
-        _deposit(alice, recipient1, assets);
-        _deposit(bob, recipient2, assets);
+        _deposit(alice, recipient1, assets / 2);
+        _deposit(bob, recipient2, assets / 2);
 
         // cache reward info
         IRewarder.RewardInfo[] memory info = booster.rewardInfo();
@@ -112,7 +112,7 @@ contract BoosterRewardsTest is BaseTest {
         assertLt(delta, acceptableDelta, "precision is within acceptable delta");
         assertEq(dai.balanceOf(recipient1) - rewardBalanceBefore1, earnedAlice, "recipient1 received earned rewards");
         assertEq(dai.balanceOf(recipient2) - rewardBalanceBefore2, earnedBob, "recipient2 received earned rewards");
-        assertApproxEqAbs(earnedAlice, earnedBob, 1e3, "alice and bob rewards differs by acceptable delta");
+        assertApproxEqAbs(earnedAlice, earnedBob, 1e3, "alice and bob rewards differ by acceptable delta");
 
     }
 
