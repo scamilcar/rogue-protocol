@@ -94,11 +94,6 @@ From Maverick ABDK audits:
 - veMAV fees is 50% of the protocol fees at the beginning
 - vote with an `id` for `IReward` array with `uint[]`
 
-TODO:
-LiquidityRewarder.sol:  
--reset to original maverick reward duration to be sure reward period never exceeds 30 days.  
-LockRewarder.sol:
-
 Audit list: 
 - C4
 - ABDK : all, logic
