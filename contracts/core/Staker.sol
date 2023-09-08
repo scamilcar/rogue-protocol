@@ -14,7 +14,7 @@ import {Rewarder} from "contracts/core/base/Rewarder.sol";
 contract Staker is ERC4626, Rewarder, Votes {
     using SafeERC20 for IERC20;
 
-    error EOA();
+    error VoteSupplyExceeded();
 
     /// @notice address of the Broker
     address public immutable broker;
@@ -55,6 +55,7 @@ contract Staker is ERC4626, Rewarder, Votes {
     /// @notice ERC4626 override, additional `_stake` action
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
         // slither-disable-next-line reentrancy-no-eth
+        if (totalSupply() + shares >= type(uint224).max) revert VoteSupplyExceeded();
         IERC20(asset()).safeTransferFrom(caller, address(this), assets);
         _stake(shares, receiver);
         _mint(receiver, shares);
