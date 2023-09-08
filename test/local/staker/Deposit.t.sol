@@ -3,6 +3,8 @@ pragma solidity ^0.8.0;
 
 import "test/local/BaseTest.sol";
 
+// TODO test voting supply when depositing (<= type(uint224).max)
+
 contract StakerDepositTest is BaseTest {
     
     function setUp() public {
