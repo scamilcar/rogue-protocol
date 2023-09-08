@@ -54,8 +54,8 @@ the `maxRewardPerVote` and the `manager` of the bounty
 This contract is used for Rogue liquidity mining.
 - The entry point to minting this NFT is claiming MAV as a LP on Rogue.
 - The owner of a NFT can buy ROG at a discount until the expiry of the option.
-- When exercising, caller can either receive ROG token or lock them right away.
-- The discount is either based on platform activiity or set by the owner of this contract.
+- When exercising, caller can either receive ROG token or convert them right away.
+- The discount is either based on platform activity or set by the owner of this contract.
 
 ### Hub.sol
 This contract inherits from `ERC4626BaseRouter from Fei Protocol.  
