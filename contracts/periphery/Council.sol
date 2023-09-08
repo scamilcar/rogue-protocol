@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20, ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -75,6 +74,11 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
     /// @notice returns the user exit struct at the given index
     function getUserExit(address user, uint256 index) external view checkExit(user, index) returns (ExitInfo memory info) {
         info = userExits[user][index];
+    }
+
+    /// @notice ERC20 override, substracts exiting shares
+    function balanceOf(address account) public view override(ERC20, IERC20) returns (uint256) {
+        return super.balanceOf(account) - exiting[account];
     }
 
     ////////////////////////////////////////////////////////////////
@@ -192,19 +196,10 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
         IERC20(asset()).safeTransferFrom(caller, address(this), assets);
         _stake(shares, receiver);
         _mint(receiver, shares);
+        _transferVotingUnits(address(0), receiver, shares);
+        _delegate(receiver, receiver);
 
         emit Deposit(caller, receiver, assets, shares);
-    }
-
-    /// @notice ERC20 override
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        _transferVotes(from, to, amount);
-    }
-
-    /// @notice ERC20 override
-    function _transferVotes(address from, address to, uint256 amount) internal {
-        _transferVotingUnits(from, to, amount);
-        _delegate(to,to);
     }
 
     ////////////////////////////////////////////////////////////////
@@ -237,6 +232,7 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
 
         _burn(owner, shares);
         _unstake(shares, owner);
+        _transferVotingUnits(owner, address(0), shares);
 
         emit Exited(owner, shares, exitShares, duration);
 
@@ -245,8 +241,7 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
             uint256 compensation = Math.mulDiv(exitShares, params.compensationRatio, ONE);
             if (compensation > 0) {
                 _stake(compensation, owner); // stake compensation for owner
-                _transferVotes(address(0), owner, compensation); // transfer votes to owner
-                _mint(address(this), exitShares); // mint to maintain right supply
+                _mint(owner, exitShares); // mint to maintain right supply
             }
             userExits[owner].push(
                 ExitInfo(
@@ -272,6 +267,7 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
         emit LOG("assets", assets);
         emit LOG("exitAssets", exitAssets);
         emit LOG("council balance1", IERC20(asset()).balanceOf(address(this)));
+
         uint256 excessAssets = assets - exitAssets;
         emit LOG("excessAssets", excessAssets);
         IERC20(asset()).safeTransfer(recipient, exitAssets);
