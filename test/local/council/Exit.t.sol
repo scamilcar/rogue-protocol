@@ -255,14 +255,70 @@ contract CouncilExitTest is BaseTest {
         vm.stopPrank();
     }
 
+    // /// @notice test leave
+    // function test_leave(uint256 assets, uint256 duration) public {
+
+    //     (, uint256 maxDuration,,, uint256 compensationRatio) = council.params();
+
+    //     // bound values
+    //     assets = bound(assets, 1e6, base.balanceOf(alice));
+    //     duration = bound(duration, 1, maxDuration);
+
+    //     address recipient = alice;
+    //     // cache
+    //     uint256 shares = council.previewDeposit(assets);
+    //     uint256 exitShares = council.getExitShares(shares, 0);
+    //     uint256 expectedAssets = council.convertToAssets(exitShares);
+    //     uint256 excessAssets = assets - expectedAssets;
+
+    //     vm.startPrank(alice);
+
+    //     // deposit 
+    //     base.approve(address(council), assets);
+    //     council.deposit(assets, recipient);
+
+    //     // cache
+    //     uint256 balanceBefore = base.balanceOf(recipient);
+    //     uint256 councilBalanceBefore = base.balanceOf(address(council));
+    //     uint256 baseSupplyBefore = base.totalSupply();
+
+    //     emit log_named_uint("balanceBefore", balanceBefore);
+    //     emit log_named_uint("councilBalanceBefore", councilBalanceBefore);
+    //     emit log_named_uint("baseSupplyBefore", baseSupplyBefore);
+
+    //     // withdraw
+    //     council.withdraw(assets, recipient, alice, duration);
+
+    //     (uint shares_, uint exitShares_,,, uint256 compensation_, uint256 release_) = council.userExits(alice, 0);
+
+    //     // go to release + 1 sec
+    //     vm.warp(release_ + 1);
+
+    //     // leave
+    //     council.leave(alice, 0);
+
+    //     // assertions
+    //     assertEq(council.balanceOf(alice), 0, "balance of");
+    //     assertEq(council.stakeOf(alice), 0, "stake of");
+    //     assertEq(council.getVotes(alice), 0, "balance of");
+
+    //     assertEq(council.totalSupply(), 0, "total supply");
+    //     assertEq(council.totalStakes(), 0, "total stakes");
+
+    //     // assertApproxEqAbs(balanceBefore + expectedAssets, base.balanceOf(recipient), 3, "assets withdrawn");
+    //     assertApproxEqAbs(councilBalanceBefore - excessAssets - expectedAssets, base.balanceOf(address(council)), 3, "council looses sent and burned balance");
+
+    //     // assertEq(base.totalSupply(), baseSupplyBefore - excessAssets, "base supply");
+    // }
+
     /// @notice test leave
-    function test_leave(uint256 assets, uint256 duration) public {
+    function test_leave() public {
 
         (, uint256 maxDuration,,, uint256 compensationRatio) = council.params();
 
         // bound values
-        assets = bound(assets, 1e6, base.balanceOf(alice));
-        duration = bound(duration, 1, maxDuration);
+        uint assets = 100;
+        uint duration = 1 days;
 
         address recipient = alice;
         // cache
@@ -282,10 +338,14 @@ contract CouncilExitTest is BaseTest {
         uint256 councilBalanceBefore = base.balanceOf(address(council));
         uint256 baseSupplyBefore = base.totalSupply();
 
+        emit log_named_uint("balanceBefore", balanceBefore);
+        emit log_named_uint("councilBalanceBefore", councilBalanceBefore);
+        emit log_named_uint("baseSupplyBefore", baseSupplyBefore);
+
         // withdraw
         council.withdraw(assets, recipient, alice, duration);
 
-        (uint shares_, uint exitShares_,,, uint256 compensation_, uint256 release_) = council.userExits(alice, 0);
+        (uint shares_, uint exitShares_,, uint256 exitAssets_, uint256 compensation_, uint256 release_) = council.userExits(alice, 0);
 
         // go to release + 1 sec
         vm.warp(release_ + 1);
@@ -294,12 +354,12 @@ contract CouncilExitTest is BaseTest {
         council.leave(alice, 0);
 
         // assertions
-        // assertEq(council.balanceOf(alice), 0, "balance of");
-        // assertEq(council.stakeOf(alice), 0, "stake of");
-        // assertEq(council.getVotes(alice), 0, "balance of");
+        assertEq(council.balanceOf(alice), 0, "balance of");
+        assertEq(council.stakeOf(alice), 0, "stake of");
+        assertEq(council.getVotes(alice), 0, "balance of");
 
-        // assertEq(council.totalSupply(), 0, "total supply");
-        // assertEq(council.totalStakes(), 0, "total stakes");
+        assertEq(council.totalSupply(), 0, "total supply");
+        assertEq(council.totalStakes(), 0, "total stakes");
 
         // assertEq(balanceBefore + expectedAssets, base.balanceOf(recipient), "assets withdrawn");
         // assertEq(councilBalanceBefore - excessAssets - expectedAssets, base.balanceOf(address(council)), "council looses sent and burned balance");

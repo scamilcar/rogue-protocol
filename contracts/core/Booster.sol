@@ -33,9 +33,6 @@ contract Booster is ERC4626, Rewarder {
     /// @notice the address of the board
     address public immutable board;
 
-    /// @notice return true if `account` is granted
-    mapping(address account => bool granted) public isProtocol;
-
     /// @param _poolPosition the associated pool position contract
     /// @param _lpReward the associated lp contract
     /// @param _broker the virtual option token distributed for liquidity mining

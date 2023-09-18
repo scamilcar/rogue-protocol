@@ -23,7 +23,7 @@ The authorized compounder of this contract can choose the MAV reward mode.
 ### Locker.sol  
 This contract is used to deposit MAV on Rogue.
 - Depositors receive a ERC20 (rMAV) at a 1:1 ratio.
-- Depositors cam withdraw their MAV until withdrawals are disabled.
+- Depositors can withdraw their MAV until withdrawals are disabled.
 - Once enabled, anybody can call the function `lock` to trigger the lock extension 
 mechanism and receive rMAV as incentive.
 - This contract respects the Layer Zero OFT standard  

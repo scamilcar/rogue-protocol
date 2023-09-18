@@ -26,50 +26,6 @@ interface IBoard is IFees {
     event VoteFeeUpdated(uint256 voteFee);
     event BountyFeeUpdated(uint256 bountyFee);
 
-    struct RewardInfo {
-        // Timestamp of when the rewards finish
-        uint256 finishAt;
-        // Minimum of last updated time and reward finish time
-        uint256 updatedAt;
-        // Reward to be paid out per second
-        uint256 rewardRate;
-        // Sum of (reward rate * dt * 1e18 / total supply)
-        uint256 rewardPerTokenStored;
-        IERC20 rewardToken;
-    }
-
-    struct EarnedInfo {
-        // account
-        address account;
-        // earned
-        uint256 earned;
-        // reward token
-        IERC20 rewardToken;
-    }
-
-
-    struct RewardData {
-        // Timestamp of when the rewards finish
-        uint256 finishAt;
-        // Minimum of last updated time and reward finish time
-        uint256 updatedAt;
-        // Reward to be paid out per second
-        uint256 rewardRate;
-        // Sum of (reward rate * dt * 1e18 / total supply)
-        uint256 rewardPerTokenStored;
-        // User address => rewardPerTokenStored
-        mapping(address => uint256) userRewardPerTokenPaid;
-        // User address => rewards to be claimed
-        mapping(address => uint256) rewards;
-        // User address => rewards mapping to track if token index has been
-        // updated
-        mapping(address => uint256) resetCount;
-        // total earned
-        uint256 escrowedReward;
-        uint256 globalResetCount;
-        IERC20 rewardToken;
-    }
-
     function unstake(address lpReward, uint256 amount, address receiver) external;
     function extendLockup(uint256 amount) external;
     function isBoard() external returns (bool);

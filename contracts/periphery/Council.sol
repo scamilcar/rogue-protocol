@@ -127,8 +127,6 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
         _deleteExit(msg.sender, index);
     }
 
-    event LOG(string,uint256);
-    event OK(uint);
     /// @notice withdraw assets once an exit is over
     /// @param receiver address to receive assets
     /// @param index index of exit
@@ -137,19 +135,13 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
         ExitInfo memory exit = userExits[msg.sender][index];
         if (block.timestamp <= exit.release) revert TooEarly(block.timestamp, exit.release);
 
-        exiting[msg.sender] -= exit.shares;
-        emit OK(1);
+        exiting[msg.sender] -= exit.exitShares;
         // send receiver assets and burn excess assets
         _leave(exit.assets, exit.exitAssets, receiver);
-        emit OK(2);
         // burn shares and msg.sender compensation
-        emit LOG("exitShares", exit.exitShares);
-        emit LOG("balance", balanceOf(address(this)));
-        emit LOG ("totalSupply", totalSupply());
-        _burn(address(this), exit.exitShares);
-        emit OK(3);
+        _burn(msg.sender, exit.exitShares);
         _unstake(exit.compensation, msg.sender);
-        emit OK(4);
+        _transferVotingUnits(msg.sender, address(0), exit.compensation);
         // remove exit from array
         _deleteExit(msg.sender, index); 
     }
@@ -237,11 +229,12 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
         emit Exited(owner, shares, exitShares, duration);
 
         if (duration > 0) {
-            exiting[owner] += shares;
+            exiting[owner] += exitShares;
             uint256 compensation = Math.mulDiv(exitShares, params.compensationRatio, ONE);
             if (compensation > 0) {
                 _stake(compensation, owner); // stake compensation for owner
                 _mint(owner, exitShares); // mint to maintain right supply
+                _transferVotingUnits(address(0), receiver, compensation);
             }
             userExits[owner].push(
                 ExitInfo(
@@ -259,21 +252,20 @@ contract Council is ICouncil, ERC4626, Rewarder, Votes {
         }
     }
 
+    event LOG(string message, uint256 value);
+
     /// @notice withdraw assets once an exit is over and burn excess shares
     /// @param assets amount of shares to exit
     /// @param exitAssets amount of shares received for 
     /// @param recipient address to receive assets
     function _leave(uint256 assets, uint256 exitAssets, address recipient) internal {
-        emit LOG("assets", assets);
-        emit LOG("exitAssets", exitAssets);
-        emit LOG("council balance1", IERC20(asset()).balanceOf(address(this)));
-
+        emit LOG("council assets balance", IERC20(asset()).balanceOf(address(this)));
+        emit LOG("council exitAssets", exitAssets);
+        emit LOG("council assets", assets);
+        emit LOG("caller balance", IERC20(asset()).balanceOf(msg.sender));
         uint256 excessAssets = assets - exitAssets;
-        emit LOG("excessAssets", excessAssets);
         IERC20(asset()).safeTransfer(recipient, exitAssets);
-        emit LOG("council balance2", IERC20(asset()).balanceOf(address(this)));
         IBase(address(asset())).burn((excessAssets));
-        emit LOG("council balance3", IERC20(asset()).balanceOf(address(this)));
     }
 
     /// @notice delete an exit entry from `owner`
