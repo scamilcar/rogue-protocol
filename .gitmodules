@@ -16,3 +16,6 @@
 [submodule "lib/maverick-protocol"]
 	path = lib/maverick-protocol
 	url = https://github.com/roguefinance/maverick-protocol
+[submodule "lib/ERC4626-Contracts"]
+	path = lib/ERC4626-Contracts
+	url = https://github.com/ERC4626-Alliance/ERC4626-Contracts
