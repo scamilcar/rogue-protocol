@@ -6,6 +6,8 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import {ERC20} from "@solmate/tokens/ERC20.sol";
+
 import {IPoolPositionManager} from "@maverick/interfaces/IPoolPositionManager.sol";
 import {PoolPositionBaseSlim} from "@maverick/PoolPositionBaseSlim.sol";
 import {RewardBase} from "@maverick/RewardBase.sol";
@@ -82,7 +84,7 @@ contract BaseTest is Test {
     function deploy() public {
         locker = new Locker(mav, endpoint);
         broker = new Broker(veMav, mav, periodDuration);
-        staker = new Staker(IERC20(address(locker)), address(broker), owner);
+        staker = new Staker(ERC20(address(locker)), address(broker), owner);
         factory = new Factory();
         council = new Council(IERC20(base), address(broker), owner);
         board = new Board(address(mav), address(veMav), poll);

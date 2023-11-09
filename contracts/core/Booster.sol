@@ -53,30 +53,17 @@ contract Booster is xERC4626, Rewarder {
 
         ERC20(_poolPosition).approve(lpReward, type(uint256).max);
     }
-
-    /*//////////////////////////////////////////////////////////////
-                             REWARD LOGIC
-    //////////////////////////////////////////////////////////////*/
-    
-    /// @notice get caller's rewards for a list of reward token index
-    /// @param recipient address to receive the rewards
-    /// @param rewardTokenIndices list of reward token index
-    function getReward(address recipient, uint8[] calldata rewardTokenIndices) external {
-        _getReward(msg.sender, recipient, rewardTokenIndices);
-    }
-
-    /// @notice get caller's rewards for a single reward token index
-    /// @param recipient address to receive the rewards
-    /// @param rewardTokenIndex reward token index
-    /// @return reward amount
-    function getReward(address recipient, uint8 rewardTokenIndex) external returns (uint256) {
-        return _getReward(msg.sender, recipient, rewardTokenIndex);
-    }
     
     /*//////////////////////////////////////////////////////////////
                         DEPOSIT/WITHDRAWAL LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Deposits assets into the Booster contract and mints shares in return.
+     * @param assets The amount of assets to deposit.
+     * @param receiver The address that will receive the shares.
+     * @return shares The amount of shares minted.
+     */
     function deposit(uint256 assets, address receiver) public override returns (uint256 shares) {
         // Check for rounding error since we round down in previewDeposit.
         require((shares = previewDeposit(assets)) != 0, "ZERO_SHARES");
@@ -94,6 +81,12 @@ contract Booster is xERC4626, Rewarder {
         afterDeposit(assets, shares);
     }
 
+    /**
+     * @notice Mints shares in return for assets already in the Booster contract.
+     * @param shares The amount of shares to mint.
+     * @param receiver The address that will receive the shares.
+     * @return assets The amount of assets transferred from the Booster contract.
+     */
     function mint(uint256 shares, address receiver) public override returns (uint256 assets) {
         assets = previewMint(shares); // No need to check for rounding error, previewMint rounds up.
 
@@ -110,6 +103,13 @@ contract Booster is xERC4626, Rewarder {
         afterDeposit(assets, shares);
     }
 
+    /**
+     * @notice Withdraws assets from the Booster contract and burns shares.
+     * @param assets The amount of assets to withdraw.
+     * @param receiver The address that will receive the assets.
+     * @param owner The address that owns the shares.
+     * @return shares The amount of shares burned.
+     */
     function withdraw(
         uint256 assets,
         address receiver,
@@ -133,6 +133,13 @@ contract Booster is xERC4626, Rewarder {
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }
 
+    /**
+     * @notice Redeems shares in return for assets already in the Booster contract.
+     * @param shares The amount of shares to redeem.
+     * @param receiver The address that will receive the assets.
+     * @param owner The address that owns the shares.
+     * @return assets The amount of assets transferred from the Booster contract.
+     */
     function redeem(
         uint256 shares,
         address receiver,
@@ -161,6 +168,11 @@ contract Booster is xERC4626, Rewarder {
                              TRANSFER LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Redeems shares in return for assets already in the Booster contract.
+     * @param to The recipient of the transfer.
+     * @param amount The amount to transfer.
+     */
     function transfer(address to, uint256 amount) public override returns (bool) {
         super.transfer(to, amount);
         _unstake(amount, msg.sender);
@@ -168,6 +180,12 @@ contract Booster is xERC4626, Rewarder {
         return true;
     }
 
+    /**
+     * @notice Redeems shares in return for assets already in the Booster contract.
+     * @param from The sender of the transfer.
+     * @param to The recipient of the transfer.
+     * @param amount The amount to transfer.
+     */
     function transferFrom(
         address from,
         address to,
@@ -180,9 +198,34 @@ contract Booster is xERC4626, Rewarder {
     }
 
     /*//////////////////////////////////////////////////////////////
+                             REWARD LOGIC
+    //////////////////////////////////////////////////////////////*/
+    
+    /**
+     * @notice get caller's rewards for a list of reward token index
+     * @param recipient address to receive the rewards
+     * @param rewardTokenIndices list of reward token index
+     */
+    function getReward(address recipient, uint8[] calldata rewardTokenIndices) external {
+        _getReward(msg.sender, recipient, rewardTokenIndices);
+    }
+
+    /**
+     * @notice get caller's rewards for a single reward token index
+     * @param recipient address to receive the rewards
+     * @param rewardTokenIndex reward token index
+     */
+    function getReward(address recipient, uint8 rewardTokenIndex) external returns (uint256) {
+        return _getReward(msg.sender, recipient, rewardTokenIndex);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                              xERC4626 LOGIC
     //////////////////////////////////////////////////////////////*/
 
+    /**
+     * @notice Compute the amount of assets available to mint shares.
+     */
     function syncRewards() public override {
         uint192 lastRewardAmount_ = lastRewardAmount;
         uint32 timestamp = block.timestamp.safeCastTo32();

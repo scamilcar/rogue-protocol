@@ -2,17 +2,14 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/governance/utils/Votes.sol";
-import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
-import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
+import "@ERC4626/src/xERC4626.sol";
 
 import {Rewarder} from "contracts/core/base/Rewarder.sol";
 
-// TODO allow compounding of rewards to more rMAV in notifyAndTransfer
-
-contract Staker is ERC4626, Rewarder, Votes {
-    using SafeERC20 for IERC20;
+contract Staker is Votes, xERC4626, Rewarder {
+    using SafeTransferLib for ERC20;
+    using SafeCastLib for *; 
 
     error VoteSupplyExceeded();
 
@@ -21,88 +18,181 @@ contract Staker is ERC4626, Rewarder, Votes {
 
     /// @param _stakingToken address of staking token
     /// @param _owner address of owner
-    constructor(IERC20 _stakingToken, address _broker, address _owner)
-        ERC4626(_stakingToken)
+    constructor(ERC20 _stakingToken, address _broker, address _owner)
+        ERC4626(_stakingToken, "Staked rMAV", "srMAV")
+        xERC4626(7 days)
         Rewarder(_owner)
-        ERC20("rogue-MAV Stakes", "rMAV Stakes") 
-        EIP712("rogue-MAV Stakes", "1") {
+        EIP712("Staked rMAV", "1") {
         
         broker = _broker;
     }
 
-    ////////////////////////////////////////////////////////////////
-    ///////////////////////// User-facing //////////////////////////
-    ////////////////////////////////////////////////////////////////
+    /*//////////////////////////////////////////////////////////////
+                        DEPOSIT/WITHDRAWAL LOGIC
+    //////////////////////////////////////////////////////////////*/
 
-    /// @notice claim multiple rewards for `msg.sender` and send them to `recipient`
-    /// @param recipient address to send rewards to
-    /// @param rewardTokenIndices indices of reward tokens to claim
+    /**
+     * @notice Deposits assets into the Booster contract and mints shares in return.
+     * @param assets The amount of assets to deposit.
+     * @param receiver The address that will receive the shares.
+     * @return shares The amount of shares minted.
+     */
+    function deposit(uint256 assets, address receiver) public override returns (uint256 shares) {
+        // Check for rounding error since we round down in previewDeposit.
+        require((shares = previewDeposit(assets)) != 0, "ZERO_SHARES");
+
+        // Need to transfer before minting or ERC777s could reenter.
+        asset.safeTransferFrom(msg.sender, address(this), assets);
+
+        _mint(receiver, shares);
+
+        emit Deposit(msg.sender, receiver, assets, shares);
+
+        afterDeposit(assets, shares);
+    }
+
+    /**
+     * @notice Mints shares in return for assets already in the Booster contract.
+     * @param shares The amount of shares to mint.
+     * @param receiver The address that will receive the shares.
+     * @return assets The amount of assets transferred from the Booster contract.
+     */
+    function mint(uint256 shares, address receiver) public override returns (uint256 assets) {
+        assets = previewMint(shares); // No need to check for rounding error, previewMint rounds up.
+
+        // Need to transfer before minting or ERC777s could reenter.
+        asset.safeTransferFrom(msg.sender, address(this), assets);
+
+        _mint(receiver, shares);
+
+        emit Deposit(msg.sender, receiver, assets, shares);
+
+        afterDeposit(assets, shares);
+    }
+
+    /**
+     * @notice Withdraws assets from the Booster contract and burns shares.
+     * @param assets The amount of assets to withdraw.
+     * @param receiver The address that will receive the assets.
+     * @param owner The address that owns the shares.
+     * @return shares The amount of shares burned.
+     */
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+    ) public override returns (uint256 shares) {
+        shares = previewWithdraw(assets); // No need to check for rounding error, previewWithdraw rounds up.
+
+        if (msg.sender != owner) {
+            uint256 allowed = allowance[owner][msg.sender]; // Saves gas for limited approvals.
+
+            if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - shares;
+        }
+
+        beforeWithdraw(assets, shares);
+
+        _burn(owner, shares);
+
+        emit Withdraw(msg.sender, receiver, owner, assets, shares);
+
+        asset.safeTransfer(receiver, assets);
+    }
+
+    /**
+     * @notice Redeems shares in return for assets already in the Booster contract.
+     * @param shares The amount of shares to redeem.
+     * @param receiver The address that will receive the assets.
+     * @param owner The address that owns the shares.
+     * @return assets The amount of assets transferred from the Booster contract.
+     */
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) public override returns (uint256 assets) {
+        if (msg.sender != owner) {
+            uint256 allowed = allowance[owner][msg.sender]; // Saves gas for limited approvals.
+
+            if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - shares;
+        }
+
+        // Check for rounding error since we round down in previewRedeem.
+        require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
+
+        beforeWithdraw(assets, shares);
+
+        _burn(owner, shares);
+
+        emit Withdraw(msg.sender, receiver, owner, assets, shares);
+
+        asset.safeTransfer(receiver, assets);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                             REWARD LOGIC
+    //////////////////////////////////////////////////////////////*/
+    
+    /**
+     * @notice get caller's rewards for a list of reward token index
+     * @param recipient address to receive the rewards
+     * @param rewardTokenIndices list of reward token index
+     */
     function getReward(address recipient, uint8[] calldata rewardTokenIndices) external {
         _getReward(msg.sender, recipient, rewardTokenIndices);
     }
 
-    /// @notice claim rewards for `msg.sender` and send them to `recipient`
-    /// @param recipient address to send rewards to
-    /// @param rewardTokenIndex index of reward token to claim
+    /**
+     * @notice get caller's rewards for a single reward token index
+     * @param recipient address to receive the rewards
+     * @param rewardTokenIndex reward token index
+     */
     function getReward(address recipient, uint8 rewardTokenIndex) external returns (uint256) {
         return _getReward(msg.sender, recipient, rewardTokenIndex);
     }
 
-    ////////////////////////////////////////////////////////////////
-    ////////////////////////// Overrides ///////////////////////////
-    ////////////////////////////////////////////////////////////////
+    /*//////////////////////////////////////////////////////////////
+                             TRANSFER LOGIC
+    //////////////////////////////////////////////////////////////*/
 
-    /// @notice ERC4626 override, additional `_stake` action
-    function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
-        // slither-disable-next-line reentrancy-no-eth
-        if (totalSupply() + shares >= type(uint224).max) revert VoteSupplyExceeded();
-        IERC20(asset()).safeTransferFrom(caller, address(this), assets);
-        _stake(shares, receiver);
-        _mint(receiver, shares);
-
-        emit Deposit(caller, receiver, assets, shares);
+    /**
+     * @notice Redeems shares in return for assets already in the Booster contract.
+     * @param to The recipient of the transfer.
+     * @param amount The amount to transfer.
+     */
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        super.transfer(to, amount);
+        _unstake(amount, msg.sender);
+        _stake(amount, to);
+        _transferVotingUnits(msg.sender, to, amount);
+        _delegate(to, to);
+        return true;
     }
 
-    /// @notice ERC4626 override, additional `_unstake` action
-    function _withdraw(
-        address caller,
-        address receiver,
-        address owner,
-        uint256 assets,
-        uint256 shares
-    ) internal override {
-        if (caller != owner) {
-            _spendAllowance(owner, caller, shares);
-        }
-        _burn(owner, shares);
-        _unstake(shares, owner);
-        IERC20(asset()).safeTransfer(receiver, assets);
-
-        emit Withdraw(caller, receiver, owner, assets, shares);
-    }
-
-    /// @notice update rewards before transfer
-    /// @param from address to transfer from
-    /// @param to address to transfer to
-    /// @param amount amount to transfer
-    /// @dev would not update rewards, stakes and  if `to` is whitelisted
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        if (from != address(0) && to != address(0)) {
-            updateAllRewards(from);
-            updateAllRewards(to);
-            _updateStakes(from, to, amount);
-        }
+    /**
+     * @notice Redeems shares in return for assets already in the Booster contract.
+     * @param from The sender of the transfer.
+     * @param to The recipient of the transfer.
+     * @param amount The amount to transfer.
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public override returns (bool){
+        super.transferFrom(from, to, amount);
+        _unstake(amount, from);
+        _stake(amount, to);
         _transferVotingUnits(from, to, amount);
         _delegate(to, to);
+        return true;
     }
 
-    /// @notice updates stakes
-    function _updateStakes(address from, address to, uint256 amount) internal {
-        stakeOf[from] -= amount;
-        stakeOf[to] += amount;
-    }
+    /*//////////////////////////////////////////////////////////////
+                             VOTE/DELEGATION LOGIC
+    //////////////////////////////////////////////////////////////*/
 
-    /// @notice Vote override, return the amount of voting units for `account`
+    /// @notice Votes override, return the amount of voting units for `account`
     function _getVotingUnits(address account) internal view override returns (uint256) {
         return stakeOf[account];
     }
