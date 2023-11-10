@@ -71,14 +71,11 @@ contract Booster is xERC4626, Rewarder {
         // Need to transfer before minting or ERC777s could reenter.
         asset.safeTransferFrom(msg.sender, address(this), assets);
 
-        IReward(lpReward).stake(assets, board);
-        _stake(shares, receiver);
-
         _mint(receiver, shares);
 
         emit Deposit(msg.sender, receiver, assets, shares);
 
-        afterDeposit(assets, shares);
+        _afterDeposit(assets, shares, receiver);
     }
 
     /**
@@ -93,14 +90,11 @@ contract Booster is xERC4626, Rewarder {
         // Need to transfer before minting or ERC777s could reenter.
         asset.safeTransferFrom(msg.sender, address(this), assets);
 
-        IReward(lpReward).stake(assets, board);
-        _stake(shares, receiver);
-
         _mint(receiver, shares);
 
         emit Deposit(msg.sender, receiver, assets, shares);
 
-        afterDeposit(assets, shares);
+        _afterDeposit(assets, shares, receiver);
     }
 
     /**
@@ -123,12 +117,9 @@ contract Booster is xERC4626, Rewarder {
             if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - shares;
         }
 
-        beforeWithdraw(assets, shares);
+        _beforeWithdraw(assets, shares, owner, receiver);
 
         _burn(owner, shares);
-
-        _unstake(shares, owner);
-        IBoard(board).unstake(lpReward, assets, receiver);
 
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }
@@ -154,14 +145,26 @@ contract Booster is xERC4626, Rewarder {
         // Check for rounding error since we round down in previewRedeem.
         require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
 
-        beforeWithdraw(assets, shares);
-
+        _beforeWithdraw(assets, shares, owner, receiver);
+        
         _burn(owner, shares);
 
+        emit Withdraw(msg.sender, receiver, owner, assets, shares);
+    }
+
+    // Update storedTotalAssets on deposit/mint
+    function _afterDeposit(uint256 assets, uint256 shares, address receiver) internal {
+        _stake(shares, receiver);
+        IReward(lpReward).stake(assets, board);
+        super.afterDeposit(assets, shares);
+
+    }
+
+    // Update storedTotalAssets on withdraw/redeem
+    function _beforeWithdraw(uint256 assets, uint256 shares, address owner, address receiver) internal {
+        super.beforeWithdraw(assets, shares);
         _unstake(shares, owner);
         IBoard(board).unstake(lpReward, assets, receiver);
-
-        emit Withdraw(msg.sender, receiver, owner, assets, shares);
     }
 
     /*//////////////////////////////////////////////////////////////
