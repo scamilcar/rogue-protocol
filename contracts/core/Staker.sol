@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/governance/utils/Votes.sol";
+import "contracts/core/base/Votes.sol";
 
 import "@ERC4626/src/xERC4626.sol";
 
@@ -21,8 +21,7 @@ contract Staker is Votes, xERC4626, Rewarder {
     constructor(ERC20 _stakingToken, address _broker, address _owner)
         ERC4626(_stakingToken, "Staked rMAV", "srMAV")
         xERC4626(7 days)
-        Rewarder(_owner)
-        EIP712("Staked rMAV", "1") {
+        Rewarder(_owner) {
         
         broker = _broker;
     }
@@ -48,7 +47,7 @@ contract Staker is Votes, xERC4626, Rewarder {
 
         emit Deposit(msg.sender, receiver, assets, shares);
 
-        afterDeposit(assets, shares);
+        _afterDeposit(assets, shares, receiver);
     }
 
     /**
@@ -67,7 +66,7 @@ contract Staker is Votes, xERC4626, Rewarder {
 
         emit Deposit(msg.sender, receiver, assets, shares);
 
-        afterDeposit(assets, shares);
+        _afterDeposit(assets, shares, receiver);
     }
 
     /**
@@ -90,7 +89,7 @@ contract Staker is Votes, xERC4626, Rewarder {
             if (allowed != type(uint256).max) allowance[owner][msg.sender] = allowed - shares;
         }
 
-        beforeWithdraw(assets, shares);
+        _beforeWithdraw(assets, shares, owner);
 
         _burn(owner, shares);
 
@@ -120,13 +119,28 @@ contract Staker is Votes, xERC4626, Rewarder {
         // Check for rounding error since we round down in previewRedeem.
         require((assets = previewRedeem(shares)) != 0, "ZERO_ASSETS");
 
-        beforeWithdraw(assets, shares);
+        _beforeWithdraw(assets, shares, owner);
 
         _burn(owner, shares);
 
         emit Withdraw(msg.sender, receiver, owner, assets, shares);
 
         asset.safeTransfer(receiver, assets);
+    }
+
+    // Update storedTotalAssets on deposit/mint
+    function _afterDeposit(uint256 assets, uint256 shares, address receiver) internal {
+        _stake(shares, receiver);
+        _transferVotingUnits(address(0), receiver, assets);
+        _delegate(receiver, receiver);
+        super.afterDeposit(assets, shares);
+    }
+
+    // Update storedTotalAssets on withdraw/redeem
+    function _beforeWithdraw(uint256 assets, uint256 shares, address owner) internal {
+        super.beforeWithdraw(assets, shares);
+        _unstake(shares, owner);
+        _transferVotingUnits(owner, address(0), assets);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -156,7 +170,7 @@ contract Staker is Votes, xERC4626, Rewarder {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Redeems shares in return for assets already in the Booster contract.
+     * @notice Transfer shares from `msg.sender` to `to`.
      * @param to The recipient of the transfer.
      * @param amount The amount to transfer.
      */
@@ -170,7 +184,7 @@ contract Staker is Votes, xERC4626, Rewarder {
     }
 
     /**
-     * @notice Redeems shares in return for assets already in the Booster contract.
+     * @notice Transfer shares from `from` to `to`.
      * @param from The sender of the transfer.
      * @param to The recipient of the transfer.
      * @param amount The amount to transfer.
@@ -195,5 +209,43 @@ contract Staker is Votes, xERC4626, Rewarder {
     /// @notice Votes override, return the amount of voting units for `account`
     function _getVotingUnits(address account) internal view override returns (uint256) {
         return stakeOf[account];
+    }
+
+    /**
+     * @dev Delegates votes from signer to `delegatee`.
+     */
+    function delegateBySig(
+        address owner,
+        address delegatee,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        require(block.timestamp <= deadline, "Votes: signature expired");
+        address recoveredAddress = ecrecover(
+            keccak256(
+                abi.encodePacked(
+                    "\x19\x01", 
+                    DOMAIN_SEPARATOR(),
+                    keccak256(
+                        abi.encode(
+                            keccak256(
+                                "Delegation(address owner,address delegatee,uint256 nonce,uint256 deadline)"
+                            ),
+                            owner,
+                            delegatee,
+                            nonces[owner]++,
+                            deadline
+                        )
+                    )
+                )
+            ),
+            v,
+            r,
+            s
+        );
+        require(recoveredAddress != address(0) && recoveredAddress == owner, "INVALID_SIGNER");
+        _delegate(recoveredAddress, delegatee);
     }
 }
