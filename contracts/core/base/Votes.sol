@@ -2,19 +2,25 @@
 // OpenZeppelin Contracts (last updated v4.9.0) (governance/utils/Votes.sol)
 pragma solidity ^0.8.0;
 
-import "../../utils/Counters.sol";
-import "../../utils/Checkpoints.sol";
-import "../../utils/cryptography/EIP712.sol";
+import "@openzeppelin/contracts/utils/Checkpoints.sol";
 
 /**
 Adapted from OpenZeppelin Votes.sol
  */
 abstract contract Votes {
     using Checkpoints for Checkpoints.Trace224;
-    using Counters for Counters.Counter;
+    
+    /**
+     * @dev Emitted when an account changes their delegate.
+     */
+    event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
 
-    bytes32 private constant _DELEGATION_TYPEHASH =
-        keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
+    /**
+     * @dev Emitted when a token transfer or delegate change results in changes to a delegate's number of voting units.
+     */
+    
+    event DelegateVotesChanged(address indexed delegate, uint256 previousVotes, uint256 newVotes);
+    
 
     mapping(address => address) private _delegation;
 
@@ -24,13 +30,11 @@ abstract contract Votes {
     /// @custom:oz-retyped-from Checkpoints.History
     Checkpoints.Trace224 private _totalCheckpoints;
 
-    mapping(address => Counters.Counter) private _nonces;
-
     /**
      * @dev Clock used for flagging checkpoints. Can be overridden to implement timestamp based
      * checkpoints (and voting), in which case {CLOCK_MODE} should be overridden as well to match.
      */
-    function clock() public view virtual override returns (uint48) {
+    function clock() public view returns (uint48) {
         return SafeCast.toUint48(block.number);
     }
 
@@ -38,7 +42,7 @@ abstract contract Votes {
      * @dev Machine-readable description of the clock as specified in EIP-6372.
      */
     // solhint-disable-next-line func-name-mixedcase
-    function CLOCK_MODE() public view virtual override returns (string memory) {
+    function CLOCK_MODE() public view returns (string memory) {
         // Check that the clock was not modified
         require(clock() == block.number, "Votes: broken clock mode");
         return "mode=blocknumber&from=default";
@@ -47,7 +51,7 @@ abstract contract Votes {
     /**
      * @dev Returns the current amount of votes that `account` has.
      */
-    function getVotes(address account) public view virtual override returns (uint256) {
+    function getVotes(address account) public view returns (uint256) {
         return _delegateCheckpoints[account].latest();
     }
 
@@ -59,7 +63,7 @@ abstract contract Votes {
      *
      * - `timepoint` must be in the past. If operating using block numbers, the block must be already mined.
      */
-    function getPastVotes(address account, uint256 timepoint) public view virtual override returns (uint256) {
+    function getPastVotes(address account, uint256 timepoint) public view returns (uint256) {
         require(timepoint < clock(), "Votes: future lookup");
         return _delegateCheckpoints[account].upperLookupRecent(SafeCast.toUint32(timepoint));
     }
@@ -76,7 +80,7 @@ abstract contract Votes {
      *
      * - `timepoint` must be in the past. If operating using block numbers, the block must be already mined.
      */
-    function getPastTotalSupply(uint256 timepoint) public view virtual override returns (uint256) {
+    function getPastTotalSupply(uint256 timepoint) public view returns (uint256) {
         require(timepoint < clock(), "Votes: future lookup");
         return _totalCheckpoints.upperLookupRecent(SafeCast.toUint32(timepoint));
     }
@@ -84,45 +88,24 @@ abstract contract Votes {
     /**
      * @dev Returns the current total supply of votes.
      */
-    function _getTotalSupply() internal view virtual returns (uint256) {
+    function _getTotalSupply() internal view returns (uint256) {
         return _totalCheckpoints.latest();
     }
 
     /**
      * @dev Returns the delegate that `account` has chosen.
      */
-    function delegates(address account) public view virtual override returns (address) {
+    function delegates(address account) public view returns (address) {
         return _delegation[account];
     }
 
     /**
      * @dev Delegates votes from the sender to `delegatee`.
      */
-    function delegate(address delegatee) public virtual override {
+    function delegate(address delegatee) public {
         _delegate(msg.sender, delegatee);
     }
 
-    /**
-     * @dev Delegates votes from signer to `delegatee`.
-     */
-    function delegateBySig(
-        address delegatee,
-        uint256 nonce,
-        uint256 expiry,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public virtual override {
-        require(block.timestamp <= expiry, "Votes: signature expired");
-        address signer = ECDSA.recover(
-            _hashTypedDataV4(keccak256(abi.encode(_DELEGATION_TYPEHASH, delegatee, nonce, expiry))),
-            v,
-            r,
-            s
-        );
-        require(nonce == _useNonce(signer), "Votes: invalid nonce");
-        _delegate(signer, delegatee);
-    }
 
     /**
      * @dev Delegate all of `account`'s voting units to `delegatee`.
@@ -189,32 +172,6 @@ abstract contract Votes {
 
     function _subtract(uint224 a, uint224 b) private pure returns (uint224) {
         return a - b;
-    }
-
-    /**
-     * @dev Consumes a nonce.
-     *
-     * Returns the current value and increments nonce.
-     */
-    function _useNonce(address owner) internal virtual returns (uint256 current) {
-        Counters.Counter storage nonce = _nonces[owner];
-        current = nonce.current();
-        nonce.increment();
-    }
-
-    /**
-     * @dev Returns an address nonce.
-     */
-    function nonces(address owner) public view virtual returns (uint256) {
-        return _nonces[owner].current();
-    }
-
-    /**
-     * @dev Returns the contract's {EIP712} domain separator.
-     */
-    // solhint-disable-next-line func-name-mixedcase
-    function DOMAIN_SEPARATOR() external view returns (bytes32) {
-        return _domainSeparatorV4();
     }
 
     /**
